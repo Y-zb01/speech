@@ -32,6 +32,10 @@ def main():
     output_path = output_dir / "transcript_clean.txt"
     cleaned = 0
 
+    if not transcript_path.exists():
+        print(f"错误: transcript 文件不存在: {transcript_path}")
+        return
+
     with open(transcript_path, "r") as fin, open(output_path, "w") as fout:
         for line in fin:
             line = line.strip()

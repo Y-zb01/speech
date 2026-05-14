@@ -44,6 +44,9 @@ def main():
 
     # 绘制分布图
     durs = [d for _, d in durations]
+    if not durs:
+        print("没有找到时长数据，跳过图表生成")
+        return
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     axes[0].bar(range(len(durs)), durs, color="steelblue")

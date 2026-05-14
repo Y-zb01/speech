@@ -18,6 +18,7 @@ def main():
     config = load_config(args.config)
     project_root = Path(__file__).resolve().parents[1]
     output_dir = project_root / config["output_dir"]
+    output_dir.mkdir(parents=True, exist_ok=True)
     wav_dir = output_dir / "wavs"
     transcript_path = output_dir / "transcript_clean.txt"
 

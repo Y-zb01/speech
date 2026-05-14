@@ -7,7 +7,10 @@ import librosa
 
 
 def load_config(config_path):
-    with open(config_path, "r") as f:
+    path = Path(config_path)
+    if not path.exists():
+        raise FileNotFoundError(f"配置文件不存在: {config_path}")
+    with open(path, "r") as f:
         return yaml.safe_load(f)
 
 
