@@ -1,16 +1,21 @@
 # 大数据和模型文件
 data/train_audio/
 data/raw_long_audio/
+data/librispeech/
 outputs/generated_audio/
 outputs/preprocess_output/
 checkpoints/
 models/
 
-# 音频文件（示例除外）
+# 音频文件（samples 目录例外）
 *.wav
 *.mp3
 *.m4a
 *.flac
+!data/samples/**/*.wav
+!data/samples/**/*.flac
+!data/samples/**/*.mp3
+!data/samples/**/*.m4a
 
 # 模型权重
 *.pth

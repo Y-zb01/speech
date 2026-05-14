@@ -1,4 +1,7 @@
 # Mac 端依赖（轻量，CPU/MPS）
+torch
+torchaudio
+torchcodec
 librosa
 soundfile
 numpy
