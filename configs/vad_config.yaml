@@ -1,5 +1,5 @@
 # VAD 语音活动检测配置
-input_audio: data/raw_long_audio/test_long.wav
+input_audio: data/raw_long_audio/my_long_audio.wav
 output_dir: outputs/preprocess_output/segments
 sample_rate: 16000
 min_speech_duration: 1.0

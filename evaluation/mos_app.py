@@ -80,22 +80,22 @@ def build_app(metadata_path, result_path, labels_path):
     def on_submit(mos_nat, mos_sim, badcase_list, note):
         idx = current_idx[0]
         if idx >= total:
-            return "已完成全部评测", None, None, gr.update()
+            return "已完成全部评测", None, None, "", 5, 5
         s = samples[idx]
         bc_str = ",".join(badcase_list) if badcase_list else ""
         save_result(s["id"], mos_nat, mos_sim, bc_str, note)
         current_idx[0] += 1
         if current_idx[0] >= total:
-            return "全部评测完成！", None, None, gr.update(interactive=False)
+            return "全部评测完成！", None, None, "全部评测完成！", 5, 5
         info, ref, syn = load_sample(current_idx[0])
-        return info, ref, syn, gr.update(value=0, interactive=True)
+        return info, ref, syn, info, 5, 5
 
     def on_skip():
         current_idx[0] += 1
         if current_idx[0] >= total:
-            return "已跳过全部", None, None, gr.update(interactive=False)
+            return "已跳过全部", None, None, "已跳过全部", 5, 5
         info, ref, syn = load_sample(current_idx[0])
-        return info, ref, syn, gr.update(value=0, interactive=True)
+        return info, ref, syn, info, 5, 5
 
     init_info, init_ref, init_syn = load_sample(0)
 
@@ -109,8 +109,8 @@ def build_app(metadata_path, result_path, labels_path):
 
         gr.Markdown("### 评分")
         with gr.Row():
-            mos_nat = gr.Slider(1, 5, value=0, step=0.5, label="自然度 MOS", scale=1)
-            mos_sim = gr.Slider(1, 5, value=0, step=0.5, label="音色相似度 MOS", scale=1)
+            mos_nat = gr.Slider(1, 5, value=5, step=0.5, label="自然度 MOS", scale=1)
+            mos_sim = gr.Slider(1, 5, value=5, step=0.5, label="音色相似度 MOS", scale=1)
 
         gr.Markdown("### 问题标注")
         badcase = gr.CheckboxGroup(choices=label_choices, label="Bad Case 标签")
@@ -124,11 +124,11 @@ def build_app(metadata_path, result_path, labels_path):
 
         submit_btn.click(
             fn=on_submit, inputs=[mos_nat, mos_sim, badcase, note],
-            outputs=[status, ref_audio, syn_audio, info_md]
+            outputs=[status, ref_audio, syn_audio, info_md, mos_nat, mos_sim]
         )
         skip_btn.click(
             fn=on_skip, inputs=[],
-            outputs=[status, ref_audio, syn_audio, info_md]
+            outputs=[status, ref_audio, syn_audio, info_md, mos_nat, mos_sim]
         )
 
     return demo
