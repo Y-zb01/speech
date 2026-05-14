@@ -1,0 +1,7 @@
+id,mos_naturalness,mos_similarity,badcase_labels,note
+sample_001,4.0,2.0,破音/爆音,
+sample_002,2.5,2.5,"机械感/不自然,音色漂移",
+sample_003,4.0,2.0,音色漂移,
+sample_004,2.5,3.5,机械感/不自然,
+sample_005,3.5,4.0,,
+sample_006,4.0,3.5,,

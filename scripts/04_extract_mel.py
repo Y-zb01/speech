@@ -6,6 +6,10 @@ import soundfile as sf
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.rcParams["font.sans-serif"] = ["PingFang SC", "Heiti SC", "Arial Unicode MS"]
+matplotlib.rcParams["axes.unicode_minus"] = False
 
 
 def load_config(config_path):

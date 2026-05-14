@@ -1,0 +1,7 @@
+id,ref_audio,syn_audio,text,model_name
+sample_001,,data/eval_data/sample_001.wav,测试文本1,model_A
+sample_002,,data/eval_data/sample_002.wav,测试文本2,model_A
+sample_003,,data/eval_data/sample_003.wav,测试文本3,model_A
+sample_004,,data/eval_data/sample_004.wav,测试文本4,model_B
+sample_005,,data/eval_data/sample_005.wav,测试文本5,model_B
+sample_006,,data/eval_data/sample_006.wav,测试文本6,model_B
