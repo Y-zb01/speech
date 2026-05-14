@@ -1,0 +1,2 @@
+True
+NVIDIA GeForce RTX 5060 Ti

@@ -1,0 +1,11 @@
+id,audio_path,duration_seconds,text
+174_14,/mnt/d/speech/outputs/processed_dataset/wavs/174_14.wav,4.83,
+1919_45,/mnt/d/speech/outputs/processed_dataset/wavs/1919_45.wav,6.11,
+2086_23,/mnt/d/speech/outputs/processed_dataset/wavs/2086_23.wav,7.37,
+2277_18,/mnt/d/speech/outputs/processed_dataset/wavs/2277_18.wav,4.54,
+2412_13,/mnt/d/speech/outputs/processed_dataset/wavs/2412_13.wav,8.42,
+5338_10,/mnt/d/speech/outputs/processed_dataset/wavs/5338_10.wav,6.62,
+5536_2,/mnt/d/speech/outputs/processed_dataset/wavs/5536_2.wav,7.02,
+6313_8,/mnt/d/speech/outputs/processed_dataset/wavs/6313_8.wav,4.49,
+6345_23,/mnt/d/speech/outputs/processed_dataset/wavs/6345_23.wav,5.53,
+7976_5,/mnt/d/speech/outputs/processed_dataset/wavs/7976_5.wav,5.56,

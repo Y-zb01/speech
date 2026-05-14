@@ -1,0 +1,12 @@
+data/train_audio/:
+174_14.flac
+1919_45.flac
+2086_23.flac
+2277_18.flac
+2412_13.flac
+5338_10.flac
+5536_2.flac
+6313_8.flac
+6345_23.flac
+7976_5.flac
+transcript.txt
