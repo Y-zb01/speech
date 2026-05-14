@@ -1,0 +1,6 @@
+# MOS 评测配置
+eval_metadata: data/eval_data/eval_metadata.csv
+result_path: evaluation/mos_results.csv
+badcase_labels: evaluation/badcase_labels.json
+server_name: 0.0.0.0
+server_port: 7860

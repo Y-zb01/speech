@@ -1,0 +1,13 @@
+# Windows WSL2 端依赖（含 GPU/CUDA）
+torch
+torchaudio
+librosa
+soundfile
+numpy
+pandas
+matplotlib
+scipy
+gradio
+pydub
+noisereduce
+pyyaml

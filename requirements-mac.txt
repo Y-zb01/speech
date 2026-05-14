@@ -1,0 +1,11 @@
+# Mac 端依赖（轻量，CPU/MPS）
+librosa
+soundfile
+numpy
+pandas
+matplotlib
+scipy
+gradio
+pydub
+noisereduce
+pyyaml

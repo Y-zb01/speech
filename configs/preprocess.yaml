@@ -1,0 +1,8 @@
+# 音频预处理配置
+data_dir: data/samples/raw_audio
+transcript_path: data/samples/transcript.txt
+output_dir: outputs/processed_dataset
+sample_rate: 24000
+channels: 1
+min_duration: 1.0
+max_duration: 15.0

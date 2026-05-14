@@ -1,0 +1,7 @@
+# VAD 语音活动检测配置
+input_audio: data/raw_long_audio/lesson_001.wav
+output_dir: outputs/preprocess_output/segments
+sample_rate: 16000
+min_speech_duration: 1.0
+max_speech_duration: 15.0
+merge_gap: 0.3

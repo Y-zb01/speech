@@ -1,0 +1,26 @@
+# 大数据和模型文件
+data/train_audio/
+data/raw_long_audio/
+outputs/generated_audio/
+outputs/preprocess_output/
+checkpoints/
+models/
+
+# 音频文件（示例除外）
+*.wav
+*.mp3
+*.m4a
+*.flac
+
+# 模型权重
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 系统文件
+.DS_Store
