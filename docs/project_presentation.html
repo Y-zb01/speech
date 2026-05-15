@@ -381,6 +381,442 @@
   </div>
 </div>
 
+<!-- ═══════════════ 技术选型与算法详解（按数据流顺序） ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">📐</span> 技术选型与算法详解</h2>
+  <p style="color:var(--muted);margin-bottom:32px;">沿数据流顺序 — 原始音频 → Mel 特征 → VAD → TTS → MOS — 逐段说明每个环节的技术选型理由、算法原理和参数选择依据。</p>
+
+  <!-- ═══ 一、原始音频数据处理 ═══ -->
+  <h3 style="font-size:1.15rem;font-weight:700;margin-top:32px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+    一、原始音频数据处理
+  </h3>
+
+  <div class="ps-pair">
+    <div class="solution" style="border-left:3px solid var(--accent);">
+      <div class="p-label" style="color:var(--accent);">目标</div>
+      将任意格式的输入音频统一转换为 <strong>24000Hz / 单声道 / PCM16 WAV</strong>，为后续 Mel 特征提取提供一致的输入规格。
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent);">1.1 格式转换 (01_convert_audio.py)</h4>
+
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>技术选型</h3>
+      <ul>
+        <li><strong>librosa.load()</strong> — 自动处理 mp3/m4a/flac/wav 等多格式解码，底层调用 audioread / FFmpeg</li>
+        <li><strong>soundfile.write()</strong> — 输出标准 PCM16 WAV，底层基于 libsndfile，比 scipy.io.wavfile 更稳定且支持更多格式</li>
+        <li>选择 24000Hz 而非 22050/16000 的理由：语音合成主流模型（HiFi-GAN、VITS、FastSpeech 2）的标准采样率，兼顾音质与计算效率。22050 是旧标准，16000 丢失高频细节（摩擦音 /s/ /f/ 能量可达 8-10kHz），44100 翻倍计算开销但语音频宽有限收益极低</li>
+        <li>单声道而非立体声：语音场景无空间信息需求，单声道减少一半数据量，且所有 TTS 模型均以单声道训练</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>关键参数一览</h3>
+      <table style="width:100%;font-size:0.85rem;">
+        <tr><td style="padding:4px 0;">采样率</td><td style="color:var(--accent);">24000 Hz</td><td>语音合成事实标准</td></tr>
+        <tr><td style="padding:4px 0;">声道</td><td style="color:var(--accent);">1 (mono)</td><td>无空间信息需求</td></tr>
+        <tr><td style="padding:4px 0;">位深</td><td style="color:var(--accent);">PCM_16</td><td>16-bit 有符号整数</td></tr>
+        <tr><td style="padding:4px 0;">最短</td><td style="color:var(--accent);">1.0s</td><td>过滤过短无效片段</td></tr>
+        <tr><td style="padding:4px 0;">最长</td><td style="color:var(--accent);">15.0s</td><td>适配模型最大输入</td></tr>
+        <tr><td style="padding:4px 0;">数据源</td><td style="color:var(--accent);">LibriSpeech dev-clean</td><td>10条 4位说话人</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent);">1.2 文本清洗 (02_clean_text.py)</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>处理流程</h3>
+      <ol style="padding-left:18px;color:var(--muted);font-size:0.92rem;">
+        <li style="margin-bottom:6px;">正则 <code>\s+</code> 归一化多个空白字符为单个空格</li>
+        <li style="margin-bottom:6px;">首尾空白去除（<code>str.strip()</code>）</li>
+        <li style="margin-bottom:6px;">Unicode 智能引号规范化（"smart quotes" → ASCII）</li>
+        <li style="margin-bottom:6px;">大写保留 — LibriSpeech 为英文，大小写提供额外语言学信息</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>设计考量</h3>
+      <ul>
+        <li><strong>不清除标点</strong> — 标点是韵律建模的重要特征，TTS 依赖标点判断停顿和语调</li>
+        <li><strong>不转小写</strong> — 大写字母对专有名词和句首识别有意义</li>
+        <li><strong>友好降级</strong> — transcript 缺失时打印提示而非崩溃，支持无文本场景</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent);">1.3 时长统计 (03_duration_stat.py)</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>方法</h3>
+      <ul>
+        <li><strong>soundfile 读取帧数 ÷ 采样率</strong> = 精确时长（秒），比 librosa.get_duration() 更快且不重新解码</li>
+        <li>生成 <code>duration_report.csv</code> 供数据质量审查</li>
+        <li>matplotlib 直方图展示时长分布均匀性，验证数据是否符合训练要求</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>实际数据统计</h3>
+      <table style="width:100%;font-size:0.85rem;">
+        <tr><td style="padding:4px 0;">样本数</td><td style="color:var(--accent);">10</td></tr>
+        <tr><td style="padding:4px 0;">时长范围</td><td style="color:var(--accent);">4.49s ~ 8.42s</td></tr>
+        <tr><td style="padding:4px 0;">中位时长</td><td style="color:var(--accent);">6.11s</td></tr>
+        <tr><td style="padding:4px 0;">分布</td><td style="color:var(--accent);">均匀</td><td>无极端值</td></tr>
+        <tr><td style="padding:4px 0;">总时长</td><td style="color:var(--accent);">60.49s</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent);">1.4 元数据生成 (05_generate_metadata.py)</h4>
+  <p style="color:var(--muted);font-size:0.9rem;">
+    遍历 <code>wavs/</code> 目录下所有 .wav 文件，与 transcript.txt 按文件名前缀匹配，生成包含
+    <strong>id / audio_path / duration_seconds / text</strong> 四列的 metadata.csv。
+    metadata.csv 是 TTS 模型训练的标准数据索引格式（借鉴 LJSpeech 和 LibriTTS 的数据组织方式）。
+  </p>
+
+  <!-- ═══ 二、Mel 特征提取 ═══ -->
+  <h3 style="font-size:1.15rem;font-weight:700;margin-top:40px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+    二、Mel 特征提取
+  </h3>
+
+  <div class="ps-pair">
+    <div class="solution" style="border-left:3px solid var(--accent);">
+      <div class="p-label" style="color:var(--accent);">目标</div>
+      将时域音频波形转换为 <strong>Mel 尺度频谱图</strong>，作为语音合成和语音识别模型的标准输入声学特征。Mel 尺度模拟人耳对频率的非线性感知 — 人耳对低频变化敏感、对高频变化迟钝。
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent2);">2.1 算法原理：STFT → Mel 滤波器组 → 对数压缩</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>Step 1: STFT 短时傅里叶变换</h3>
+      <ol style="padding-left:18px;color:var(--muted);font-size:0.92rem;">
+        <li style="margin-bottom:6px;">音频被切分为重叠的时间帧（帧长 1024 samples ≈ 42.7ms @24kHz）</li>
+        <li style="margin-bottom:6px;">每帧乘以 Hann 窗（平滑边缘，减少频谱泄漏）</li>
+        <li style="margin-bottom:6px;">每帧计算 1024 点 FFT，得到复数频谱</li>
+        <li style="margin-bottom:6px;">取幅值（magnitude）→ 平方得功率谱 → 仅保留 DC 到 Nyquist 的 513 个非冗余频率 bin</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Step 2 & 3: Mel 映射 + 对数压缩</h3>
+      <ol style="padding-left:18px;color:var(--muted);font-size:0.92rem;">
+        <li style="margin-bottom:6px;">频率轴从线性 Hz 映射到 Mel 尺度：<code>mel = 2595 × log₁₀(1 + f/700)</code></li>
+        <li style="margin-bottom:6px;">80 个等间距三角滤波器覆盖 0~12000Hz Mel 范围</li>
+        <li style="margin-bottom:6px;">低频区域滤波器密集（模拟人耳高分辨率），高频区域稀疏（模拟人耳低分辨率）</li>
+        <li style="margin-bottom:6px;">功率谱取对数（dB 尺度）：<code>log(mel_power + 1e-6)</code>，压缩动态范围，模拟人耳响度感知的对数特性</li>
+      </ol>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent2);">2.2 参数选择依据（每一个参数的选型理由）</h4>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>参数</th><th>取值</th><th>选型理由</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>sample_rate</code></td>
+          <td><strong>24000 Hz</strong></td>
+          <td>与预处理阶段保持一致。语音频宽~8kHz（奈奎斯特定理需 ≥16kHz）。24000 可恢复 ≤12000Hz 信号，完全覆盖语音信息频带（包括摩擦音/s//f/的8-10kHz能量）。HiFi-GAN、VITS、FastSpeech 2 均以此为标准训练</td>
+        </tr>
+        <tr>
+          <td><code>n_fft</code></td>
+          <td><strong>1024</strong></td>
+          <td>@24kHz，帧长 1024 samples ≈ 42.7ms。频率分辨率 ≈ 23.4Hz/bin。平衡时间分辨率与频率分辨率的工程最优值 — 更大（2048）频率分辨率更好但时间精度下降，更小（512）时间精度高但谐波结构模糊</td>
+        </tr>
+        <tr>
+          <td><code>hop_length</code></td>
+          <td><strong>256</strong></td>
+          <td>帧移 ≈ 10.7ms，75% 帧重叠。10ms 级别是语音处理的黄金标准 — 音素最短持续约 30ms，10ms 帧移保证每个音素至少被 3 帧捕获。256 为 2 的幂，利于 GPU 内存对齐。典型 TTS 模型均使用此值</td>
+        </tr>
+        <tr>
+          <td><code>win_length</code></td>
+          <td><strong>1024</strong></td>
+          <td>与 n_fft 一致，无零填充。Hann 窗函数确保首尾平滑为零，避免帧边界的不连续引入伪影（Gibbs 现象）。零填充会引入虚假频率成分，不推荐</td>
+        </tr>
+        <tr>
+          <td><code>n_mels</code></td>
+          <td><strong>80</strong></td>
+          <td><strong>语音合成领域事实标准</strong> — Tacotron 2 (2018)、FastSpeech (2019)、FastSpeech 2 (2020)、VITS (2021)、HiFi-GAN (2020) 全部使用 80 维 Mel 作为输入/输出。128 维计算开销增加 60% 但信息增益极小（80 维已足够表示语音全部声学信息）；40 维丢失共振峰细节</td>
+        </tr>
+        <tr>
+          <td><code>fmin</code></td>
+          <td><strong>0 Hz</strong></td>
+          <td>包含基频 F0 信息（语音基频约 80-300Hz）。F0 是韵律模型的核心特征，决定语调高低和重音位置。不使用常见的高通截止（如 80Hz）以避免丢失低频韵律信息</td>
+        </tr>
+        <tr>
+          <td><code>fmax</code></td>
+          <td><strong>12000 Hz</strong></td>
+          <td>Nyquist 上限（24000/2），覆盖语音全部频带。英语摩擦音 /s/ 能量可达 8-10kHz，/f/ 可达 6-8kHz，12000Hz 保留完整信息。再高（如 16000）需更高采样率且对语音无额外价值</td>
+        </tr>
+        <tr>
+          <td>输出格式</td>
+          <td><code>.npy</code></td>
+          <td>NumPy 原生二进制格式，零序列化开销，支持内存映射（mmap）。单文件 = (80, frames) float32 矩阵，典型大小 ~100KB/样本，便于批量加载和 PyTorch DataLoader 直接读取</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent2);">2.3 Mel 频谱解读</h4>
+  <p style="color:var(--muted);font-size:0.9rem;">
+    以 <code>docs/mel_example.png</code> 为例：横轴为时间帧（每帧 10.7ms），纵轴为 80 个 Mel 频率通道（0→12000Hz 由底→顶），颜色亮度代表对数能量（dB）。
+    可观测到清晰的<strong>谐波结构</strong>（水平亮纹，对应基频 F0 及其谐波）和<strong>共振峰轨迹</strong>（频率随时间变化的包络，这是区分不同元音 (/a/ /i/ /u/) 和浊辅音的核心声学线索）。
+  </p>
+
+  <!-- ═══ 三、VAD 语音活动检测 ═══ -->
+  <h3 style="font-size:1.15rem;font-weight:700;margin-top:40px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+    三、VAD 语音活动检测
+  </h3>
+
+  <div class="ps-pair">
+    <div class="solution" style="border-left:3px solid var(--accent);">
+      <div class="p-label" style="color:var(--accent);">目标</div>
+      从长音频（160s）中自动检测并切分出人声片段，过滤静音和噪声区间，为后续 TTS 模型训练或评测提供干净的短语音片段。
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent3);">3.1 算法选型：能量 VAD vs 深度学习 VAD</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>为什么用能量 VAD（而非 Silero / WebRTC）</h3>
+      <ul>
+        <li><strong>零依赖</strong> — 不需要 PyTorch（Silero-VAD）或 C++ 工具链（WebRTC），纯 Python + NumPy 即可</li>
+        <li><strong>完全可解释</strong> — 每一步（阈值、平滑、合并）都有明确的物理含义，调试方便</li>
+        <li><strong>参数透明可控</strong> — 不像深度学习 VAD 那样是"黑盒"，所有阈值都可按场景调整</li>
+        <li><strong>录音棚/安静环境足够</strong> — LibriSpeech 为录音棚录制、用户自录为安静室内，信噪比高，能量 VAD 精度与深度学习 VAD 差距极小</li>
+        <li><strong>实际验证</strong>：160s 长音频 → 50 段（1.0~4.6s），无噪音碎片，无误检静音段</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>对比：何时升级到 Silero-VAD</h3>
+      <table style="width:100%;font-size:0.85rem;">
+        <tr><td style="padding:4px 0;">场景</td><td>能量 VAD</td><td>Silero-VAD</td></tr>
+        <tr><td style="padding:4px 0;">录音棚</td><td style="color:var(--accent3);">✓ 优秀</td><td>✓ 优秀</td></tr>
+        <tr><td style="padding:4px 0;">安静室内</td><td style="color:var(--accent3);">✓ 良好</td><td>✓ 优秀</td></tr>
+        <tr><td style="padding:4px 0;">街道噪声</td><td>△ 一般</td><td style="color:var(--accent2);">✓ 良好</td></tr>
+        <tr><td style="padding:4px 0;">多人交谈</td><td>✗ 较差</td><td style="color:var(--accent2);">✓ 良好</td></tr>
+      </table>
+      <p style="margin-top:8px;color:var(--muted);font-size:0.82rem;">噪声场景建议升级为 Silero-VAD 并做对比实验</p>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent3);">3.2 五阶段能量 VAD 算法（06_vad_segment.py 217行）</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>阶段 1: 分帧 + RMS 能量计算</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>帧长 25ms，帧移 12.5ms（50% 重叠）</li>
+        <li>每帧计算 RMS 能量：<code>√(mean(x²))</code></li>
+        <li>设计理由：25ms 短期平稳假设 — 语音信号在 ~25ms 内近似平稳（声带振动状态不变）；12.5ms 帧移提供足够的边界定位精度</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>阶段 2: 自适应阈值</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>能量归一化到 [0, 1]（消除录音增益差异）</li>
+        <li>阈值 = <code>mean(E) × 0.3 + median(E) × 0.35</code></li>
+        <li>设计理由：均值对高能量异常值敏感（突然的咳嗽/撞击加分）；中位数对异常值鲁棒但可能低估语音；加权组合平衡两者。0.3/0.35 系数经网格搜索确定</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>阶段 3: 中值滤波</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>窗口 3 帧（≈ 37.5ms），scipy.ndimage.median_filter</li>
+        <li>消除孤立误检：连续 ≤1 帧语音 → 噪声；连续 ≤1 帧静音 → 保留</li>
+        <li>设计理由：语音起止是连续过程（不会在 37.5ms 内反复出现/消失），中值滤波比均值滤波更保留边界的锐利度（不会模糊起止时刻）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>阶段 4: 相邻段合并</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>间隔 &lt; 0.3s 的相邻语音段自动合并为一段</li>
+        <li>设计理由：正常语速下句间停顿 ≥ 0.5-1.0s；0.3s 以下的间隔通常是句中短暂的闭音/塞音间隔（如 "boat" 的 /t/ 闭音 ~0.1-0.2s），不应切断</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>阶段 5: 时长过滤</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>&lt; 1.0s → 丢弃（单音节、噪声、呼气声，无训练价值）</li>
+        <li>&gt; 15.0s → 以 15s 为步长截断（超过模型训练最大输入，多句粘连需断开）</li>
+        <li>1.0~15.0s → 直接保留</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent3);">3.3 降噪后处理 (07_denoise.py 69行)</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>频谱减法原理</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>noisereduce 库：估计静音/噪声段的平均频谱，从整段音频频谱中减去该噪声分量</li>
+        <li><code>prop_decrease=0.85</code>：每帧仅减去 85% 的估计噪声（而非 100%），避免过度减法导致音乐噪声（musical noise）伪影</li>
+        <li><code>stationary=False</code>：非稳态模式，允许噪声频谱随时间变化（真实录音中的环境噪声不是恒定的）</li>
+        <li>降噪在 VAD 切分之后逐段处理，避免对整条长音频（160s）做全量降噪导致内存溢出</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>VAD + 降噪 实际输出指标</h3>
+      <table style="width:100%;font-size:0.85rem;">
+        <tr><td style="padding:4px 0;">输入</td><td style="color:var(--accent3);">my_long_audio.wav，160.6s</td></tr>
+        <tr><td style="padding:4px 0;">检出</td><td style="color:var(--accent3);">50 个语音段</td></tr>
+        <tr><td style="padding:4px 0;">时长</td><td style="color:var(--accent3);">1.0s ~ 4.6s</td></tr>
+        <tr><td style="padding:4px 0;">平均</td><td style="color:var(--accent3);">~2.1s</td></tr>
+        <tr><td style="padding:4px 0;">总语音</td><td style="color:var(--accent3);">~105s</td><td>161s 中约 65% 为语音</td></tr>
+        <tr><td style="padding:4px 0;">误检</td><td style="color:var(--accent3);">0</td><td>无噪声误检为语音</td></tr>
+        <tr><td style="padding:4px 0;">漏检</td><td style="color:var(--accent3);">~55s 静音</td><td>正确过滤</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ 四、TTS 文本转语音 ═══ -->
+  <h3 style="font-size:1.15rem;font-weight:700;margin-top:40px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+    四、TTS 文本转语音推理
+  </h3>
+
+  <div class="ps-pair">
+    <div class="solution" style="border-left:3px solid var(--accent);">
+      <div class="p-label" style="color:var(--accent);">目标</div>
+      使用文本转语音引擎将中文测试文本合成为自然语音，为 MOS 评测提供评测素材。未来可替换为 GPT-SoVITS / CosyVoice 开源模型。
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--warn);">4.1 技术选型：Edge-TTS 的选型逻辑</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>为什么 Edge-TTS（而非 GPT-SoVITS/CosyVoice）</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li><strong>零部署成本</strong>：pip install 即用，无需下载模型权重（CosyVoice ~2GB）、无需 CUDA 环境、无需复杂依赖</li>
+        <li><strong>中文质量高</strong>：Microsoft 神经网络 TTS 经过大规模训练，自然度和韵律媲美真人</li>
+        <li><strong>免费无 API 限制</strong>：通过 Edge 浏览器引擎接口调用，无需 Azure 订阅和配额</li>
+        <li><strong>MVP 优先策略</strong>：先跑通全流程证明链路可行，后续替换开源模型做对比实验</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>音色选择</h3>
+      <table style="width:100%;font-size:0.85rem;">
+        <tr><td style="padding:4px 0;">XiaoxiaoNeural</td><td style="color:var(--warn);">女声</td><td>明亮、自然、表现力强，中文 TTS 标杆音色</td></tr>
+        <tr><td style="padding:4px 0;">YunxiNeural</td><td style="color:var(--warn);">男声</td><td>温暖、沉稳，与 Xiaoxiao 形成对比</td></tr>
+      </table>
+      <p style="margin-top:8px;color:var(--muted);font-size:0.82rem;">双音色对比可考察 MOS 评测在不同音色上的区分度</p>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--warn);">4.2 推理工程实现 (tts_infer.py 101行)</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>容错设计</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li><strong>3 次自动重试</strong>：网络波动或 API 短暂不可用时，2s/4s 指数退避重试</li>
+        <li><strong>0.5s 请求间隔</strong>：防止 API 限流触发 Microsoft 反爬机制</li>
+        <li><strong>异步批量执行</strong>：asyncio + edge_tts.Communicate，20 条在 ~25s 内全部完成</li>
+        <li><strong>推理日志</strong>：每条记录保存 id、模型、音色、文本、生成路径、耗时，完整可追溯</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Windows 端执行原因</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>双机协同架构中 "推理/训练" 职责归属 Windows 端，保持架构一致性</li>
+        <li>后续替换为 GPT-SoVITS / CosyVoice 等 GPU 模型时，Windows 端无需改造直接承接</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══ 五、MOS 主观评测 ═══ -->
+  <h3 style="font-size:1.15rem;font-weight:700;margin-top:40px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+    五、MOS 主观听音评测
+  </h3>
+
+  <div class="ps-pair">
+    <div class="solution" style="border-left:3px solid var(--accent);">
+      <div class="p-label" style="color:var(--accent);">目标</div>
+      对合成语音进行<strong>双维度主观质量评分</strong>，量化语音合成的自然度和音色相似度，识别并分类 Bad Case 问题类型。
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent2);">5.1 评测方法论与维度设计</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>双维度 MOS 设计</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li><strong>自然度 MOS</strong>（1-5，0.5 步进）：<br>
+          评估语音是否流畅自然、有无机械感，<strong>不与参考音频比较</strong>，是独立听感的绝对评分。参考 ITU-T P.800 主观评测标准</li>
+        <li><strong>音色相似度 MOS</strong>（1-5，0.5 步进）：<br>
+          评估同一音色的不同合成样本之间音色是否稳定一致，检测音色漂移问题。Edge-TTS 场景下主要检测跨句稳定性</li>
+        <li><strong>0.5 步进</strong>（9 级量表）：比标准 5 级 MOS 更精细，可捕捉细微质量差异（如 3.5 vs 4.0 的差别）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Bad Case 标签体系（8 类）</h3>
+      <table style="width:100%;font-size:0.85rem;">
+        <tr><td style="padding:4px 0;">破音/爆音</td><td>音频削波失真，波形幅度超出量化范围</td></tr>
+        <tr><td style="padding:4px 0;">漏读</td><td>合成遗漏部分输入文字</td></tr>
+        <tr><td style="padding:4px 0;">错读/多读</td><td>多音字错误或合成多余内容</td></tr>
+        <tr><td style="padding:4px 0;">音色漂移</td><td>同一句中音色出现明显变化</td></tr>
+        <tr><td style="padding:4px 0;">机械感/不自然</td><td>韵律平淡、语调单一、听感机器化</td></tr>
+        <tr><td style="padding:4px 0;">语速异常</td><td>明显过快或过慢</td></tr>
+        <tr><td style="padding:4px 0;">停顿不当</td><td>句中停顿位置不符合语法或语感</td></tr>
+        <tr><td style="padding:4px 0;">无问题</td><td>听感正常，无需标注</td></tr>
+      </table>
+      <p style="margin-top:8px;color:var(--muted);font-size:0.82rem;">标签设计覆盖 TTS 常见缺陷的三大维度：语音质量（破音）、文本准确性（漏读/错读）、韵律自然度（机械感/语速/停顿）+ 音色稳定性（漂移）</p>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent2);">5.2 技术实现：Gradio 6.x + CSV 持久化</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>前端：Gradio Blocks API</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>选择 Gradio 而非 Flask/Django/FastAPI：Gradio 专为 ML/Audio 演示设计，内置 <code>gr.Audio</code> 组件（自动生成波形图 + HTML5 播放器），无需手写 Web Audio API 代码</li>
+        <li>自定义布局：双列音频（参考 + 合成）+ 评分滑块 + 多选标签 + 备注文本框</li>
+        <li><code>server_name="0.0.0.0"</code>：允许同一局域网内的其他设备（手机/平板）访问评测页面</li>
+        <li>修复了 Gradio 6.x API 变更（<code>gr.update()</code> 已废弃，改为直接返回值）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>后端：轻量 CSV 持久化</h3>
+      <ul style="color:var(--muted);font-size:0.92rem;">
+        <li>无数据库依赖：评测结果即时追加写入 <code>mos_results.csv</code></li>
+        <li>支持断点续评：程序重启后从已有 CSV 条数推算进度</li>
+        <li>每次提交自动记录：样本 ID + 两维 MOS + Bad Case 标签 + 备注</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent2);">5.3 结果分析 (analyze_mos.py 136行)</h4>
+  <div class="cards" style="margin-top:12px;">
+    <div class="card">
+      <h3>分析流程</h3>
+      <ol style="padding-left:18px;color:var(--muted);font-size:0.92rem;">
+        <li style="margin-bottom:4px;">读取 mos_results.csv → pandas DataFrame</li>
+        <li style="margin-bottom:4px;">计算平均 MOS（自然度 / 相似度），按模型分组</li>
+        <li style="margin-bottom:4px;">绘制 MOS 分布直方图（检验评分分布合理性）</li>
+        <li style="margin-bottom:4px;">统计 Bad Case 频次，绘制水平柱状图</li>
+        <li style="margin-bottom:4px;">筛选低分样本（MOS ≤ 2.5），导出列表供人工复核</li>
+        <li style="margin-bottom:4px;">绘制模型 MOS 对比图（多模型时自动启用）</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>实际评测结果</h3>
+      <table style="width:100%;font-size:0.85rem;">
+        <tr><td style="padding:4px 0;">评测记录</td><td style="color:var(--accent2);">25 条</td></tr>
+        <tr><td style="padding:4px 0;">自然度均分</td><td style="color:var(--accent2);">5.00 / 5</td></tr>
+        <tr><td style="padding:4px 0;">相似度均分</td><td style="color:var(--accent2);">5.00 / 5</td></tr>
+        <tr><td style="padding:4px 0;">Bad Case</td><td style="color:var(--accent2);">1 条</td><td>Yunxi 男声 — 机械感/不自然</td></tr>
+        <tr><td style="padding:4px 0;">结论</td><td style="color:var(--accent2);">Edge-TTS 中文合成质量优秀</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h4 style="font-size:0.95rem;font-weight:700;margin-top:20px;color:var(--accent2);">5.4 评测的局限性（诚实的工程反思）</h4>
+  <ul style="color:var(--muted);font-size:0.9rem;padding-left:20px;">
+    <li style="margin-bottom:6px;"><strong>单一评测员</strong>：当前只有项目作者一人评测，结果参考价值有限。工业级 MOS 通常需要 20+ 评测员计算 95% 置信区间</li>
+    <li style="margin-bottom:6px;"><strong>Edge-TTS 天花板效应</strong>：10 句通用场景短文本全部满分，未体现 MOS 量表的区分能力。需要更难样本（数字/地址/专业术语）测试</li>
+    <li style="margin-bottom:6px;"><strong>无 AB 盲测</strong>：评测员知道所有样本来自 Edge-TTS，可能存在期望偏差（expectation bias）</li>
+    <li style="margin-bottom:6px;"><strong>改进路径</strong>：① 加入开源克隆模型（GPT-SoVITS）做对比，增加质量方差；② 实现 AB 盲测模式；③ 邀请多人独立评测并计算评分者间信度（Krippendorff's Alpha）</li>
+  </ul>
+</div>
+
 <!-- ═══════════════ 技术参数 ═══════════════ -->
 <div class="section">
   <h2><span class="icon">⚙️</span> 核心技术参数</h2>
