@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>语音算法工具箱 — 项目汇报</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --accent3: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #172554 70%, #0f172a 100%);
+    padding: 100px 24px 80px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(circle at 30% 40%, rgba(56,189,248,0.08) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(129,140,248,0.06) 0%, transparent 50%);
+    animation: heroGlow 8s ease-in-out infinite;
+  }
+  @keyframes heroGlow {
+    0%,100% { transform: translate(0,0) rotate(0deg); }
+    33% { transform: translate(1%,-1%) rotate(1deg); }
+    66% { transform: translate(-1%,1%) rotate(-1deg); }
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    position: relative; z-index: 1;
+  }
+  .hero .sub { color: var(--muted); font-size: 1.1rem; margin-top: 16px; position: relative; z-index: 1; }
+  .hero .badges { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; z-index: 1; }
+  .badge {
+    padding: 6px 18px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  }
+  .badge.py { border-color: #38bdf8; color: #38bdf8; }
+  .badge.ml { border-color: #818cf8; color: #818cf8; }
+  .badge.tts { border-color: #34d399; color: #34d399; }
+  .badge.mac { border-color: #fbbf24; color: #fbbf24; }
+
+  /* ── Sections ── */
+  .section {
+    max-width: 1000px; margin: 0 auto; padding: 64px 24px;
+  }
+  .section h2 {
+    font-size: 1.75rem; font-weight: 700; margin-bottom: 32px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section h2 .icon { font-size: 1.5rem; }
+
+  /* ── Stats Row ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px; margin-top: 32px;
+  }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 24px; text-align: center;
+  }
+  .stat .num {
+    font-size: 2rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat .label { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+
+  /* ── Timeline ── */
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before {
+    content: ''; position: absolute; left: 11px; top: 0; bottom: 0;
+    width: 2px; background: var(--border);
+  }
+  .tl-item { position: relative; margin-bottom: 32px; }
+  .tl-item::before {
+    content: ''; position: absolute; left: -25px; top: 8px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg);
+  }
+  .tl-item.phase::before { background: var(--accent2); width: 16px; height: 16px; left: -27px; top: 4px; }
+  .tl-date { color: var(--accent); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
+  .tl-title { font-weight: 700; font-size: 1.05rem; margin-top: 2px; }
+  .tl-desc { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+
+  /* ── Cards ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px; transition: transform 0.2s, border-color 0.2s;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 12px; }
+  .card p, .card li { color: var(--muted); font-size: 0.92rem; }
+  .card ul { padding-left: 18px; }
+  .card ul li { margin-bottom: 6px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; margin-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { text-align: left; padding: 12px 16px; background: var(--surface); color: var(--accent); font-weight: 700; }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(56,189,248,0.03); }
+
+  /* ── Flow ── */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center;
+    margin: 24px 0;
+  }
+  .flow-node {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 22px; font-weight: 600; font-size: 0.9rem; text-align: center;
+  }
+  .flow-node.in  { border-color: var(--accent); color: var(--accent); }
+  .flow-node.proc { border-color: var(--accent2); color: var(--accent2); }
+  .flow-node.out { border-color: var(--accent3); color: var(--accent3); }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+
+  /* ── Problem/Solution ── */
+  .ps-pair { margin-bottom: 24px; }
+  .ps-pair .problem, .ps-pair .solution {
+    padding: 16px 20px; border-radius: 10px; margin-bottom: 8px;
+  }
+  .ps-pair .problem { background: rgba(248,113,113,0.08); border-left: 3px solid var(--danger); }
+  .ps-pair .solution { background: rgba(52,211,153,0.08); border-left: 3px solid var(--accent3); }
+  .ps-pair .p-label { font-weight: 700; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 4px; }
+  .ps-pair .problem .p-label { color: var(--danger); }
+  .ps-pair .solution .p-label { color: var(--accent3); }
+
+  /* ── Roadmap ── */
+  .roadmap { display: flex; gap: 0; overflow-x: auto; padding: 16px 0; }
+  .rm-phase {
+    flex: 1; min-width: 220px; padding: 20px; border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .rm-phase:last-child { border-right: none; }
+  .rm-num {
+    width: 36px; height: 36px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;
+    margin-bottom: 12px;
+  }
+  .rm-num.done { background: var(--accent3); color: #0f172a; }
+  .rm-num.next { background: var(--accent2); color: #fff; }
+  .rm-num.future { background: var(--border); color: var(--muted); }
+  .rm-phase h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; }
+  .rm-phase p { color: var(--muted); font-size: 0.82rem; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center; padding: 48px 24px; color: var(--muted); font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* Dark mode scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<section class="hero">
+  <h1>语音算法工具箱</h1>
+  <p class="sub">从数据到评测 — 语音合成全链路工程实践</p>
+  <div class="badges">
+    <span class="badge py">Python 3.10</span>
+    <span class="badge ml">LibriSpeech</span>
+    <span class="badge tts">Edge-TTS</span>
+    <span class="badge mac">Mac + WSL2 双机协同</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num">12</div><div class="label">次 Git 提交</div></div>
+    <div class="stat"><div class="num">8</div><div class="label">个 Python 脚本</div></div>
+    <div class="stat"><div class="num">4</div><div class="label">张可视化图表</div></div>
+    <div class="stat"><div class="num">80</div><div class="label">条音频产出</div></div>
+    <div class="stat"><div class="num">5.0</div><div class="label">MOS 均分</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════ 项目概述 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">🎯</span> 项目概述</h2>
+  <p style="color:var(--muted);max-width:760px;">
+    本项目面向语音算法实习生岗位，完整实现从<strong style="color:var(--text);">原始音频数据处理 → Mel 特征提取 → VAD 语音活动检测 → TTS 文本转语音推理 → MOS 主观听音评测</strong>的端到端流程。
+    采用 <strong style="color:var(--text);">Mac（开发/评测主控）+ Windows WSL2（GPU 训练/批量推理）</strong>双机协同架构，
+    通过 Git / GitHub 完成跨平台协作与代码同步。
+  </p>
+
+  <div style="margin-top:28px;">
+    <h3 style="font-size:1rem;margin-bottom:16px;color:var(--muted);">数据流全景</h3>
+    <div class="flow" style="font-size:0.82rem;">
+      <div class="flow-node in">LibriSpeech<br>.flac ×10</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node proc">格式转换<br>24kHz/mono</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node proc">文本清洗<br>+ 时长统计</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node proc">Mel 特征<br>80维 ×10</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node proc">VAD 切分<br>160s→50段</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node proc">降噪处理<br>50段</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node proc">Edge-TTS<br>20条合成</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node out">MOS 评测<br>评分+分析</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 项目历程 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">📅</span> 项目历程</h2>
+  <p style="color:var(--muted);margin-bottom:24px;">从零到完整交付，12 次提交的全过程记录。</p>
+
+  <div class="timeline">
+
+    <div class="tl-item phase">
+      <div class="tl-date">Phase 1 · 2026-05-14</div>
+      <div class="tl-title">项目启动：环境搭建与骨架设计</div>
+      <div class="tl-desc">
+        安装 Miniconda，创建 Python 3.10 环境（speech_mac），配置 librosa / soundfile / torchaudio / gradio 等全部依赖。
+        搭建项目文件夹骨架，编写 5 个音频预处理脚本（格式转换、文本清洗、时长统计、Mel 提取、元数据生成），
+        全部采用 YAML 配置驱动。初始化 Git 仓库并推送至 GitHub。
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">2026-05-14</div>
+      <div class="tl-title">Mac 端测试：24 项测试发现 4 个 Bug</div>
+      <div class="tl-desc">
+        编写完整测试计划（T0 环境检查 ~ T8 文档完整性），逐项测试并记录问题：① config 文件缺失时友好报错缺失；
+        ② transcript 缺失时抛异常；③ 空数据时图表被覆盖为空白；④ metadata.csv 父目录未创建导致写入失败。
+        统一修复后回归测试全部通过。
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">2026-05-14</div>
+      <div class="tl-title">数据准备：下载 LibriSpeech 真实数据</div>
+      <div class="tl-desc">
+        从 LibriSpeech dev-clean 数据集选取 10 条音频（4 位不同说话人，时长 4.5s~8.4s），
+        替换掉初始的空白测试文件。配置 Matplotlib 中文字体（PingFang SC）确保图表中文正常渲染。
+      </div>
+    </div>
+
+    <div class="tl-item phase">
+      <div class="tl-date">Phase 2 · 2026-05-14</div>
+      <div class="tl-title">双机协同：Windows 端操作指南与执行</div>
+      <div class="tl-desc">
+        编写 <code>docs/win端操作指南.md</code>，明确每一步的输入输出文件。Windows WSL2 端完成：
+        环境搭建（PyTorch + librosa + noisereduce + edge-tts）、VAD 切分（test_long.wav → 19 段）、
+        降噪处理、Edge-TTS 推理（Xiaoxiao + Yunxi 双音色 ×10句 = 20 条合成语音）。
+        通过 GitHub 完成跨平台数据同步。
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">2026-05-15</div>
+      <div class="tl-title">数据策略调整：方案 1 — 用 LibriSpeech 替代自录音频</div>
+      <div class="tl-desc">
+        用户自录短句（sentence.m4a）VAD 切分效果不理想（230 个碎片→合并后仍有部分过短）。
+        决策：<strong>模块一使用 LibriSpeech 标准数据，用户长音频仅用于 VAD 演示和 TTS 参考</strong>。
+        清理所有切分碎片，回退配置，重跑预处理流水线产出干净 10 条数据。
+      </div>
+    </div>
+
+    <div class="tl-item phase">
+      <div class="tl-date">Phase 3 · 2026-05-15</div>
+      <div class="tl-title">项目收尾：Mac 端 VAD + MOS 评测</div>
+      <div class="tl-desc">
+        在 Mac 端对用户 160s 长音频运行 VAD 切分（能量检测 + 中值滤波 → 50 段）和降噪。
+        配置 MOS 评测元数据（20 条合成语音），启动 Gradio 评测页面。
+        修复 Gradio 6.x 兼容性 Bug（<code>gr.update()</code> API 已废弃，改为直接返回值）。
+        完成 25 条主观评测，MOS 均分 5.0。运行分析脚本生成 Bad Case 分布图。
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">2026-05-15</div>
+      <div class="tl-title">文档交付：全面展示文档 + 项目报告 + HTML 汇报</div>
+      <div class="tl-desc">
+        更新项目报告（真实数据、评测结果、技术参数），编写全面展示文档（数据流全景图、输入输出对应表、一键运行命令），
+        生成 HTML 可视化汇报页面（本文件）。全部推送至 GitHub。
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ 关键挑战与解决方案 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">🔧</span> 关键挑战与解决方案</h2>
+
+  <div class="ps-pair">
+    <div class="problem">
+      <div class="p-label">问题</div>
+      VAD 能量阈值一刀切 — 用户自录短句被切成 230 个碎片，最碎的仅 0.01s
+    </div>
+    <div class="solution">
+      <div class="p-label">解决</div>
+      改用 LibriSpeech 标准数据集作为模块一输入，保证数据质量。VAD 仅用于演示长音频切分能力（160s → 50 段，1~4.5s 合理范围）。
+      使用中值滤波 + 段合并 + 时长过滤三层后处理保证切分质量。
+    </div>
+  </div>
+
+  <div class="ps-pair">
+    <div class="problem">
+      <div class="p-label">问题</div>
+      Gradio 6.x 不兼容 — 提交评测后页面报错，<code>gr.update()</code> API 已废弃
+    </div>
+    <div class="solution">
+      <div class="p-label">解决</div>
+      移除所有 <code>gr.update()</code> 调用，改为直接返回值。将评分滑块加入 outputs 列表，提交后自动重置为默认值。
+    </div>
+  </div>
+
+  <div class="ps-pair">
+    <div class="problem">
+      <div class="p-label">问题</div>
+      双机 Git 同步冲突 — Windows 端产出覆盖 Mac 端版本，pull 时产生合并冲突
+    </div>
+    <div class="solution">
+      <div class="p-label">解决</div>
+      统一以 GitHub 为 single source of truth。数据产出通过 <code>.gitignore</code> 精确控制哪些目录纳入版本管理（segments/denoised/wavs 通过 <code>!outputs/**/*.wav</code> 放行）。
+    </div>
+  </div>
+
+  <div class="ps-pair">
+    <div class="problem">
+      <div class="p-label">问题</div>
+      macOS Matplotlib 中文显示为方块 — 默认字体不含 CJK 字形
+    </div>
+    <div class="solution">
+      <div class="p-label">解决</div>
+      在所有画图脚本中设置 <code>matplotlib.rcParams["font.sans-serif"] = ["PingFang SC", "Heiti SC"]</code>。
+    </div>
+  </div>
+
+  <div class="ps-pair">
+    <div class="problem">
+      <div class="p-label">问题</div>
+      GitHub 443 端口直连超时 — 国内网络环境需要代理
+    </div>
+    <div class="solution">
+      <div class="p-label">解决</div>
+      检测本地 Clash Verge 代理端口（7897），配置 <code>git config http.proxy</code> 和 <code>https.proxy</code>，Token 嵌入 remote URL 实现免密推送。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 技术参数 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">⚙️</span> 核心技术参数</h2>
+
+  <div class="cards">
+    <div class="card">
+      <h3>🎵 音频预处理</h3>
+      <ul>
+        <li>采样率：24000 Hz · 单声道 · PCM16</li>
+        <li>输入：LibriSpeech dev-clean · 10 条 flac</li>
+        <li>时长范围：4.49s ~ 8.42s</li>
+        <li>4 位独立说话人</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📊 Mel 特征</h3>
+      <ul>
+        <li>n_fft=1024 · hop_length=256</li>
+        <li>n_mels=80 · fmax=12000Hz</li>
+        <li>输出格式：.npy (n_mels, frames)</li>
+        <li>每张频谱可独立用于模型训练</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🎙️ VAD 检测</h3>
+      <ul>
+        <li>帧长 25ms · 帧移 12.5ms</li>
+        <li>自适应能量阈值 + 中值滤波(窗口3)</li>
+        <li>段合并间隔 &lt; 0.3s</li>
+        <li>输入：160s 长音频 → 输出：50 段（1.0~4.6s）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🤖 TTS 推理</h3>
+      <ul>
+        <li>引擎：Microsoft Edge-TTS</li>
+        <li>音色：XiaoxiaoNeural（女）+ YunxiNeural（男）</li>
+        <li>10 句中文测试文本 × 2 音色 = 20 条</li>
+        <li>3 次重试机制 · 0.5s 间隔防限流</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📝 MOS 评测</h3>
+      <ul>
+        <li>双维度：自然度 + 音色相似度（1~5，0.5步进）</li>
+        <li>8 类 Bad Case 标签</li>
+        <li>Gradio 6.x · 支持局域网访问</li>
+        <li>CSV 持久化 · 断点续评</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🖥️ 双机协同</h3>
+      <ul>
+        <li>Mac ARM64：开发 + 小样本 + 评测</li>
+        <li>Windows WSL2 Ubuntu：GPU 训练 + 批量推理</li>
+        <li>Git + GitHub 代码同步</li>
+        <li>YAML 配置驱动 · 零硬编码路径</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 评测结果 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">📈</span> MOS 评测结果</h2>
+
+  <div class="stats">
+    <div class="stat"><div class="num">25</div><div class="label">评测记录</div></div>
+    <div class="stat"><div class="num">5.00</div><div class="label">自然度均分</div></div>
+    <div class="stat"><div class="num">5.00</div><div class="label">相似度均分</div></div>
+    <div class="stat"><div class="num">1</div><div class="label">Bad Case</div></div>
+    <div class="stat"><div class="num">8</div><div class="label">标签维度</div></div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:28px;">
+    <table>
+      <thead>
+        <tr><th>音色</th><th>性别</th><th>样本数</th><th>自然度均分</th><th>相似度均分</th><th>Bad Case</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>XiaoxiaoNeural</td><td>女声</td><td>10</td><td>5.00</td><td>5.00</td><td>0</td></tr>
+        <tr><td>YunxiNeural</td><td>男声</td><td>10</td><td>5.00</td><td>5.00</td><td>1（机械感/不自然）</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ 可视化产出 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">🖼️</span> 可视化产出</h2>
+
+  <div class="cards">
+    <div class="card">
+      <h3>时长分布图</h3>
+      <p style="color:var(--muted);font-size:0.8rem;">docs/duration_distribution.png</p>
+      <p>10 条 LibriSpeech 音频的时长直方图，展示数据分布均匀性。</p>
+    </div>
+    <div class="card">
+      <h3>Mel 频谱示例</h3>
+      <p style="color:var(--muted);font-size:0.8rem;">docs/mel_example.png</p>
+      <p>80 维对数 Mel 频谱热力图，x 轴时间、y 轴频率，展示语音时频特征。</p>
+    </div>
+    <div class="card">
+      <h3>VAD 切分可视化</h3>
+      <p style="color:var(--muted);font-size:0.8rem;">docs/vad_result.png</p>
+      <p>160s 长音频波形，50 个绿色高亮区域标识检测到的语音段。</p>
+    </div>
+    <div class="card">
+      <h3>Bad Case 分布图</h3>
+      <p style="color:var(--muted);font-size:0.8rem;">docs/badcase_distribution.png</p>
+      <p>MOS 评分分布直方图 + 8 类问题标签柱状图，展示评测质量全景。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 未来发展规划 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">🚀</span> 未来发展规划</h2>
+
+  <div class="roadmap">
+    <div class="rm-phase">
+      <div class="rm-num done">✓</div>
+      <h4>V1.0 基础链路</h4>
+      <p>已完成。LibriSpeech 数据处理 + 能量 VAD + Edge-TTS + Gradio MOS 评测。</p>
+    </div>
+    <div class="rm-phase">
+      <div class="rm-num next">2</div>
+      <h4>V1.5 模型升级</h4>
+      <p>接入 GPT-SoVITS 或 CosyVoice，实现零样本语音克隆。用用户的 <code>tts_demo/ref_audio/</code> 5 条参考音频做音色克隆，对比 Edge-TTS 效果。</p>
+    </div>
+    <div class="rm-phase">
+      <div class="rm-num next">3</div>
+      <h4>V2.0 数据扩展</h4>
+      <p>接入 AISHELL-3 中文数据集（85 小时），实现中英双语全链路支持。批量 Mel 提取脚本适配大规模数据。</p>
+    </div>
+    <div class="rm-phase">
+      <div class="rm-num future">4</div>
+      <h4>V2.5 评测增强</h4>
+      <p>AB 盲测模式、多评测员协同打分、评测一致性分析（Krippendorff's Alpha）。音频波形 + 频谱并排对比视图。</p>
+    </div>
+    <div class="rm-phase">
+      <div class="rm-num future">5</div>
+      <h4>V3.0 平台化</h4>
+      <p>FastAPI 后端 + React 前端，模型热加载，批量 TTS API，评测任务分发。Docker 容器化一键部署。</p>
+    </div>
+  </div>
+
+  <div class="cards" style="margin-top:32px;">
+    <div class="card">
+      <h3>🔬 短期（1-2 周）</h3>
+      <ul>
+        <li>GPU 端部署 GPT-SoVITS / CosyVoice</li>
+        <li>用 ref_audio 完成零样本音色克隆</li>
+        <li>克隆音色 vs Edge-TTS 对比 MOS 评测</li>
+        <li>接入 Silero-VAD 深度学习模型，对比能量 VAD 效果</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🎯 中期（1-2 月）</h3>
+      <ul>
+        <li>中文 AISHELL-3 数据处理管道</li>
+        <li>多语种支持（中/英/日）</li>
+        <li>AB 盲测模式 + 多人协同评测</li>
+        <li>频谱对比分析工具（合成 vs 真人）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🌐 长期（3-6 月）</h3>
+      <ul>
+        <li>FastAPI 后端服务化</li>
+        <li>模型热切换 · 批量推理 API</li>
+        <li>Docker 容器化 · 一键部署</li>
+        <li>Web 管理后台 · 评测任务分发</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 技术栈 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">🛠️</span> 技术栈</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>类别</th><th>技术</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>语言</td><td>Python 3.10</td><td>全项目开发语言</td></tr>
+        <tr><td>环境</td><td>Conda (speech_mac)</td><td>Mac 端依赖隔离</td></tr>
+        <tr><td>音频 I/O</td><td>librosa · soundfile</td><td>音频加载、重采样、格式转换</td></tr>
+        <tr><td>信号处理</td><td>scipy · noisereduce</td><td>中值滤波、频谱减法降噪</td></tr>
+        <tr><td>数据集</td><td>torchaudio (LibriSpeech)</td><td>标准语音数据集下载与访问</td></tr>
+        <tr><td>TTS</td><td>edge-tts</td><td>Microsoft 云端语音合成</td></tr>
+        <tr><td>可视化</td><td>matplotlib (PingFang SC)</td><td>频谱图、统计图、VAD 检测图</td></tr>
+        <tr><td>评测 UI</td><td>Gradio 6.x</td><td>MOS 主观听音评测页面</td></tr>
+        <tr><td>数据处理</td><td>numpy · pandas</td><td>数值计算、CSV 读写、统计分析</td></tr>
+        <tr><td>配置管理</td><td>PyYAML</td><td>YAML 配置驱动，零硬编码</td></tr>
+        <tr><td>版本控制</td><td>Git + GitHub</td><td>代码管理、双机同步</td></tr>
+        <tr><td>操作系统</td><td>macOS ARM64 · WSL2 Ubuntu</td><td>双机协同架构</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ 项目文件清单 ═══════════════ -->
+<div class="section">
+  <h2><span class="icon">📁</span> 核心文件清单</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>文件</th><th>行数</th><th>功能</th></tr></thead>
+      <tbody>
+        <tr><td><code>scripts/01_convert_audio.py</code></td><td>~60</td><td>音频格式转换（mp3/m4a/flac → wav 24kHz mono）</td></tr>
+        <tr><td><code>scripts/02_clean_text.py</code></td><td>~45</td><td>文本清洗（空白规范化、引号标准化）</td></tr>
+        <tr><td><code>scripts/03_duration_stat.py</code></td><td>~60</td><td>时长统计 + 直方图</td></tr>
+        <tr><td><code>scripts/04_extract_mel.py</code></td><td>~60</td><td>Mel 频谱提取 + 示例图</td></tr>
+        <tr><td><code>scripts/05_generate_metadata.py</code></td><td>~55</td><td>元数据 CSV 生成</td></tr>
+        <tr><td><code>scripts/06_vad_segment.py</code></td><td>217</td><td>能量 VAD 检测 + 切分 + 可视化</td></tr>
+        <tr><td><code>scripts/07_denoise.py</code></td><td>69</td><td>频谱减法降噪</td></tr>
+        <tr><td><code>evaluation/mos_app.py</code></td><td>159</td><td>Gradio MOS 评测页面</td></tr>
+        <tr><td><code>evaluation/analyze_mos.py</code></td><td>136</td><td>评测结果分析 + 图表</td></tr>
+        <tr><td><code>tts_demo/tts_infer.py</code></td><td>101</td><td>Edge-TTS 批量推理</td></tr>
+        <tr><td><code>docs/presentation.md</code></td><td>—</td><td>全面展示文档（Markdown）</td></tr>
+        <tr><td><code>docs/project_report.md</code></td><td>—</td><td>项目结题报告</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ Footer ═══════════════ -->
+<footer>
+  <p>语音算法工具箱 · Speech Intern Toolkit</p>
+  <p style="margin-top:8px;">
+    <a href="https://github.com/Y-zb01/speech" target="_blank">GitHub / Y-zb01 / speech</a>
+  </p>
+  <p style="margin-top:12px;font-size:0.75rem;">Python 3.10 · macOS ARM64 + WSL2 Ubuntu · 2026-05-15</p>
+</footer>
+
+</body>
+</html>
